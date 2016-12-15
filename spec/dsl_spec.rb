@@ -261,9 +261,9 @@ RSpec.describe Capybara::DSL do
       @session.using_session(:name)
     end
 
-    it "should provide a 'using_wait_time' shortcut" do
-      expect(Capybara).to receive(:using_wait_time).with(6)
-      @session.using_wait_time(6)
-    end
+    # it "should provide a 'using_wait_time' shortcut" do
+    #   expect(Capybara).to receive(:using_wait_time).with(6)
+    #   @session.using_wait_time(6)
+    # end
   end
 end

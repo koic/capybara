@@ -68,7 +68,7 @@ class Capybara::RackTest::Browser
   end
 
   def reset_host!
-    uri = URI.parse(Capybara.app_host || Capybara.default_host)
+    uri = URI.parse(driver.session_config.app_host || driver.session_config.default_host)
     @current_scheme = uri.scheme
     @current_host = uri.host
     @current_port = uri.port

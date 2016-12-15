@@ -2,6 +2,8 @@
 require 'timeout'
 require 'nokogiri'
 require 'xpath'
+require 'forwardable'
+require 'capybara/session/config'
 
 module Capybara
   class CapybaraError < StandardError; end
@@ -19,17 +21,27 @@ module Capybara
   class WindowError < CapybaraError; end
   class ReadOnlyElementError < CapybaraError; end
 
+
   class << self
-    attr_reader :app_host, :default_host
-    attr_accessor :asset_host, :run_server, :always_include_port
-    attr_accessor :server_port, :exact, :match, :exact_options, :visible_text_only, :enable_aria_label
-    attr_accessor :default_selector, :default_max_wait_time, :ignore_hidden_elements
-    attr_accessor :save_path, :wait_on_first_by_default, :automatic_label_click, :automatic_reload
-    attr_reader :reuse_server
-    attr_accessor :raise_server_errors, :server_errors
+    extend Forwardable
+
+    attr_accessor :server_port
     attr_writer :default_driver, :current_driver, :javascript_driver, :session_name, :server_host
-    attr_reader :save_and_open_page_path
-    attr_accessor :app
+    attr_accessor :app, :server_errors
+    attr_reader :reuse_server
+    attr_accessor :per_session_configuration
+
+    [:always_include_port, :run_server, :default_selector, :default_max_wait_time, :ignore_hidden_elements,
+     :automatic_reload, :match, :exact, :raise_server_errors, :visible_text_only, :wait_on_first_by_default,
+     :automatic_label_click, :enable_aria_label, :default_host, :app_host, :save_path, :exact_options, :asset_host, :save_and_open_page_path
+    ].each do |method|
+       # def_delegators :default_session_config, method, "#{method}=".to_sym
+       #problem configs
+       def_delegator :default_session_config, method if [:default_max_wait_time].include? method
+       #ok configs
+       def_delegator :default_session_config, method if [:app_host, :default_host, :automatic_label_click].include? method
+       def_delegator :default_session_config, "#{method}=".to_sym
+     end
 
     ##
     #
@@ -385,22 +397,6 @@ module Capybara
       self.default_max_wait_time = t
     end
 
-    def save_and_open_page_path=(path)
-      warn "DEPRECATED: #save_and_open_page_path is deprecated, please use #save_path instead. \n"\
-           "Note: Behavior is slightly different with relative paths - see documentation" unless path.nil?
-      @save_and_open_page_path = path
-    end
-
-    def app_host=(url)
-      raise ArgumentError.new("Capybara.app_host should be set to a url (http://www.example.com)") unless url.nil? || (url =~ URI::Parser.new.make_regexp)
-      @app_host = url
-    end
-
-    def default_host=(url)
-      raise ArgumentError.new("Capybara.default_host should be set to a url (http://www.example.com)") unless url.nil? || (url =~ URI::Parser.new.make_regexp)
-      @default_host = url
-    end
-
     def included(base)
       base.send(:include, Capybara::DSL)
       warn "`include Capybara` is deprecated. Please use `include Capybara::DSL` instead."
@@ -421,6 +417,10 @@ module Capybara
 
     def session_pool
       @session_pool ||= {}
+    end
+
+    def default_session_config
+      @config ||= Capybara::SessionConfig.new
     end
   end
 

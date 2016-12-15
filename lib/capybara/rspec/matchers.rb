@@ -155,11 +155,12 @@ module Capybara
 
     class BecomeClosed
       def initialize(options)
-        @wait_time = Capybara::Queries::BaseQuery.wait(options)
+        @options = options
       end
 
       def matches?(window)
         @window = window
+        @wait_time = Capybara::Queries::BaseQuery.wait(@options, window.session.config.default_max_wait_time)
         start_time = Capybara::Helpers.monotonic_time
         while window.exists?
           return false if (Capybara::Helpers.monotonic_time - start_time) > @wait_time

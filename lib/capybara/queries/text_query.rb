@@ -5,7 +5,7 @@ module Capybara
     class TextQuery < BaseQuery
       def initialize(*args)
         @type = (args.first.is_a?(Symbol) || args.first.nil?) ? args.shift : nil
-        @type = (Capybara.ignore_hidden_elements or Capybara.visible_text_only) ? :visible : :all if @type.nil?
+        # @type = (Capybara.ignore_hidden_elements or Capybara.visible_text_only) ? :visible : :all if @type.nil?
         @expected_text, @options = args
         unless @expected_text.is_a?(Regexp)
           @expected_text = Capybara::Helpers.normalize_whitespace(@expected_text)
@@ -17,6 +17,7 @@ module Capybara
 
       def resolve_for(node)
         @node = node
+        @type = (node.session_config.ignore_hidden_elements or node.session_config.visible_text_only) ? :visible : :all if @type.nil?
         @actual_text = text(node, @type)
         @count = @actual_text.scan(@search_regexp).size
       end

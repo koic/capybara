@@ -31,9 +31,9 @@ module Capybara
       def find(*args, &optional_filter_block)
         query = Capybara::Queries::SelectorQuery.new(*args, &optional_filter_block)
         synchronize(query.wait) do
-          if (query.match == :smart or query.match == :prefer_exact) and query.supports_exact?
+          if (query.match == :smart or query.match == :prefer_exact)
             result = query.resolve_for(self, true)
-            result = query.resolve_for(self, false) if result.empty? && !query.exact?
+            result = query.resolve_for(self, false) if result.empty? && query.supports_exact? && !query.exact?
           else
             result = query.resolve_for(self)
           end
@@ -232,7 +232,7 @@ module Capybara
       # @return [Capybara::Node::Element]            The found element or nil
       #
       def first(*args, &optional_filter_block)
-        if Capybara.wait_on_first_by_default
+        if session_config.wait_on_first_by_default
           options = if args.last.is_a?(Hash) then args.pop.dup else {} end
           args.push({minimum: 1}.merge(options))
         end

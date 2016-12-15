@@ -70,7 +70,7 @@ module Capybara
       raise ArgumentError, "The second parameter to Session::new should be a rack app if passed." if app && !app.respond_to?(:call)
       @mode = mode
       @app = app
-      if Capybara.run_server and @app and driver.needs_server?
+      if config.run_server and @app and driver.needs_server?
         @server = Capybara::Server.new(@app).boot
       else
         @server = nil
@@ -84,7 +84,9 @@ module Capybara
           other_drivers = Capybara.drivers.keys.map { |key| key.inspect }
           raise Capybara::DriverNotFoundError, "no driver called #{mode.inspect} was found, available drivers: #{other_drivers.join(', ')}"
         end
-        Capybara.drivers[mode].call(app)
+        driver = Capybara.drivers[mode].call(app)
+        driver.session_config = config
+        driver
       end
     end
 
@@ -122,7 +124,7 @@ module Capybara
     # Raise errors encountered in the server
     #
     def raise_server_error!
-      if Capybara.raise_server_errors and @server and @server.error
+      if config.raise_server_errors and @server and @server.error
         # Force an explanation for the error being raised as the exception cause
         begin
           raise CapybaraError, "Your application server raised an error - It has been raised in your test code because Capybara.raise_server_errors == true"
@@ -228,10 +230,10 @@ module Capybara
       visit_uri = URI.parse(visit_uri.to_s)
 
       uri_base = if @server
-        visit_uri.port = @server.port if Capybara.always_include_port && (visit_uri.port == visit_uri.default_port)
-        URI.parse(Capybara.app_host || "http://#{@server.host}:#{@server.port}")
+        visit_uri.port = @server.port if config.always_include_port && (visit_uri.port == visit_uri.default_port)
+        URI.parse(config.app_host || "http://#{@server.host}:#{@server.port}")
       else
-        Capybara.app_host && URI.parse(Capybara.app_host)
+        config.app_host && URI.parse(config.app_host)
       end
 
       # TODO - this is only for compatability with previous 2.x behavior that concatenated
@@ -487,7 +489,7 @@ module Capybara
         driver.switch_to_window(window.handle)
         window
       else
-        wait_time = Capybara::Queries::BaseQuery.wait(options)
+        wait_time = Capybara::Queries::BaseQuery.wait(options, config.default_max_wait_time)
         document.synchronize(wait_time, errors: [Capybara::WindowError]) do
           original_window_handle = driver.current_window_handle
           begin
@@ -584,7 +586,7 @@ module Capybara
       old_handles = driver.window_handles
       block.call
 
-      wait_time = Capybara::Queries::BaseQuery.wait(options)
+      wait_time = Capybara::Queries::BaseQuery.wait(options, config.default_max_wait_time)
       document.synchronize(wait_time, errors: [Capybara::WindowError]) do
         opened_handles = (driver.window_handles - old_handles)
         if opened_handles.size != 1
@@ -695,7 +697,7 @@ module Capybara
     #
     def save_page(path = nil)
       path = prepare_path(path, 'html')
-      File.write(path, Capybara::Helpers.inject_asset_host(body), mode: 'wb')
+      File.write(path, Capybara::Helpers.inject_asset_host(body, config.asset_host), mode: 'wb')
       path
     end
 
@@ -780,7 +782,28 @@ module Capybara
       scope
     end
 
+    ##
+    #
+    # Yield a block using a specific wait time
+    #
+    def using_wait_time(seconds)
+      previous_wait_time = config.default_max_wait_time
+      config.default_max_wait_time = seconds
+      yield
+    ensure
+      config.default_max_wait_time = previous_wait_time
+    end
+
+    def config
+      if Capybara.per_session_configuration
+        @config ||= Capybara.send(:default_session_config).dup
+      else
+        Capybara.send(:default_session_config)
+      end
+    end
+
   private
+
     def accept_modal(type, text_or_options, options, &blk)
       driver.accept_modal(type, modal_options(text_or_options, options), &blk)
     end
@@ -792,7 +815,7 @@ module Capybara
     def modal_options(text_or_options, options)
       text_or_options, options = nil, text_or_options if text_or_options.is_a?(Hash)
       options[:text] ||= text_or_options unless text_or_options.nil?
-      options[:wait] ||= Capybara.default_max_wait_time
+      options[:wait] ||= config.default_max_wait_time
       options
     end
 
@@ -808,10 +831,10 @@ module Capybara
     end
 
     def prepare_path(path, extension)
-      if Capybara.save_path || Capybara.save_and_open_page_path.nil?
-        path = File.expand_path(path || default_fn(extension), Capybara.save_path)
+      if config.save_path || config.save_and_open_page_path.nil?
+        path = File.expand_path(path || default_fn(extension), config.save_path)
       else
-        path = File.expand_path(default_fn(extension), Capybara.save_and_open_page_path) if path.nil?
+        path = File.expand_path(default_fn(extension), config.save_and_open_page_path) if path.nil?
       end
       FileUtils.mkdir_p(File.dirname(path))
       path

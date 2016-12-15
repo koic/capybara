@@ -242,9 +242,9 @@ module Capybara
 
       def _check_with_label(selector, checked, locator, options)
         locator, options = nil, locator if locator.is_a? Hash
-        allow_label_click = options.delete(:allow_label_click) { Capybara.automatic_label_click }
+        allow_label_click = options.delete(:allow_label_click) { session_config.automatic_label_click }
 
-        synchronize(Capybara::Queries::BaseQuery::wait(options)) do
+        synchronize(Capybara::Queries::BaseQuery.wait(options, session_config.default_max_wait_time)) do
           begin
             el = find(selector, locator, options)
             el.set(checked)
